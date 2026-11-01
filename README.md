@@ -64,7 +64,9 @@ Une réinitialisation d'usine de la télé remet aussi tout comme avant.
 ./scripts/alleger.sh 192.168.1.XX
 ```
 
-Désactive 19 apps système qui tournent pour rien : télémétrie et « gardien » TCL, boutique TCL, autocollants du mode magasin, services Google fermés (Play Films, Play Musique, Play Jeux), recommandations et ancien accueil Google, économiseur Google, rapports de bugs, galerie, impression. La liste commentée est dans le script. Netflix, YouTube, Prime Video, le Play Store, Chromecast, l'Assistant et les entrées HDMI ne sont pas touchés.
+Désactive 20 apps système qui tournent pour rien : télémétrie et « gardien » TCL, boutique TCL, autocollants du mode magasin, services Google fermés (Play Films, Play Musique, Play Jeux), recommandations et ancien accueil Google, économiseur Google, rapports de bugs, galerie, impression, Chromecast. La liste commentée est dans le script. Netflix, YouTube, Prime Video, le Play Store, l'Assistant et les entrées HDMI ne sont pas touchés.
+
+Sur la TCL S6500, le système réactive Chromecast à chaque redémarrage complet de la télé : il suffit de relancer le script.
 
 Rien n'est supprimé. Pour tout réactiver :
 

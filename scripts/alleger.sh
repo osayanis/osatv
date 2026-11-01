@@ -31,6 +31,7 @@ com.google.android.tv.bugreportsender
 com.android.gallery3d
 com.android.printspooler
 com.android.wallpaper.livepicker
+com.google.android.apps.mediashell
 "
 # com.tcl.bi                      télémétrie TCL (envoie l'usage de la télé)
 # com.tcl.tvweishi                « gardien » TCL (nettoyeur qui tourne en fond)
@@ -42,6 +43,8 @@ com.android.wallpaper.livepicker
 # backdrop                        économiseur Google (OsaTV a le sien)
 # feedback, bugreportsender       rapports de bugs envoyés à Google
 # gallery3d, printspooler, livepicker   galerie, impression, fonds animés : sans usage sur une télé
+# apps.mediashell                 Chromecast intégré. Sur la TCL S6500, le système le réactive à chaque
+#                                 redémarrage complet : relancer ce script après un redémarrage.
 
 adb connect "$TV" >/dev/null
 adb -s "$TV" wait-for-device
@@ -50,6 +53,8 @@ for package in $PACKAGES; do
     if [ "$2" = "annuler" ]; then
         adb -s "$TV" shell pm enable "$package" >/dev/null 2>&1 && echo "réactivé   $package" || echo "absent     $package"
     else
+        # Une app désactivée peut rester en mémoire jusqu'au prochain redémarrage : on l'arrête aussi
         adb -s "$TV" shell pm disable-user --user 0 "$package" >/dev/null 2>&1 && echo "désactivé  $package" || echo "absent     $package"
+        adb -s "$TV" shell am force-stop "$package" >/dev/null 2>&1 || true
     fi
 done
