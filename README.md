@@ -32,6 +32,7 @@ Il a été développé et testé sur une TCL S6500 (châssis RT41, Android TV 9,
 - **Mode déplacement** : l'icône tremble et se déplace avec les flèches. OK ou Retour pour la poser. L'ordre est mémorisé.
 - **Économiseur** : après 3 minutes sans toucher la télécommande, la grille s'efface. Il reste la vidéo de la Terre vue de l'ISS en plein écran, l'heure, la date et la météo. La première touche réveille l'écran sans rien ouvrir.
 - **Bouton Home ou Retour** : retour en haut, sur la première icône.
+- **Toujours sur OsaTV au démarrage** : à la mise sous tension, la TCL ouvre d'office la dernière source (TV, HDMI, AV) par-dessus l'accueil, sans réglage pour l'en empêcher (`ams.bootsource AUTO`). Si personne n'a touché la télécommande, OsaTV reprend aussitôt la main.
 
 Au premier lancement, les apps de streaming connues (Netflix, YouTube, Prime Video…) sont placées dans le dock. Une app installée plus tard s'ajoute à la fin de la grille.
 
@@ -45,7 +46,7 @@ Sur la télé :
 Sur le Mac, avec `adb` installé (`brew install android-platform-tools`) :
 
 ```sh
-./scripts/install.sh 192.168.1.XX OsaTV-0.4.1.apk
+./scripts/install.sh 192.168.1.XX OsaTV-0.4.2.apk
 ```
 
 Le script installe l'APK, fait d'OsaTV l'accueil par défaut et désactive l'accueil Google. Sans ça, celui-ci reprend la main sur le bouton Home.

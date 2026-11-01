@@ -6,6 +6,10 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
+import android.view.KeyEvent
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -26,6 +30,8 @@ import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity(), HomeActions {
     private lateinit var state: HomeState
+    private var userActed = false
+    private var reclaimed = false
 
     private val packageReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -63,6 +69,24 @@ class MainActivity : ComponentActivity(), HomeActions {
         state.resetFocus()
     }
 
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        userActed = true
+        return super.dispatchKeyEvent(event)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // Au démarrage à froid, la TCL ouvre d'office la dernière source (TV, HDMI, AV) par-dessus l'accueil,
+        // sans réglage pour l'en empêcher : si personne n'a encore touché la télécommande, on reprend la main.
+        // Dès la pause, la source n'a pas encore eu le temps de s'afficher (elle met ~2 s).
+        if (!userActed && !reclaimed && SystemClock.elapsedRealtime() < COLD_BOOT_WINDOW_MS) {
+            reclaimed = true
+            Handler(Looper.getMainLooper()).postDelayed({
+                startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            }, 500)
+        }
+    }
+
     override fun onDestroy() {
         unregisterReceiver(packageReceiver)
         super.onDestroy()
@@ -88,6 +112,11 @@ class MainActivity : ComponentActivity(), HomeActions {
             Intent(Intent.ACTION_DELETE, Uri.fromParts("package", app.packageName, null))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         )
+    }
+
+    private companion object {
+        /** La TCL bascule sur la source ~2 s après l'accueil, lui-même affiché ~1 min après la mise sous tension. */
+        const val COLD_BOOT_WINDOW_MS = 180_000L
     }
 
     private fun attempt(block: () -> Unit) {
