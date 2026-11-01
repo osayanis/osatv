@@ -41,6 +41,8 @@ object Cleanup {
         "com.android.printspooler",
         "com.android.wallpaper.livepicker",
         "com.google.android.apps.mediashell",
+        "com.google.android.katniss",
+        "com.google.android.speech.pumpkin",
     )
 
     private const val TAG = "OsaTV"

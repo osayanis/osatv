@@ -45,7 +45,7 @@ Sur la télé :
 Sur le Mac, avec `adb` installé (`brew install android-platform-tools`) :
 
 ```sh
-./scripts/install.sh 192.168.1.XX OsaTV-0.4.0.apk
+./scripts/install.sh 192.168.1.XX OsaTV-0.4.1.apk
 ```
 
 Le script installe l'APK, fait d'OsaTV l'accueil par défaut et désactive l'accueil Google. Sans ça, celui-ci reprend la main sur le bouton Home.
@@ -64,7 +64,7 @@ Une réinitialisation d'usine de la télé remet aussi tout comme avant.
 ./scripts/alleger.sh 192.168.1.XX
 ```
 
-Désactive 20 apps système qui tournent pour rien : télémétrie et « gardien » TCL, boutique TCL, autocollants du mode magasin, services Google fermés (Play Films, Play Musique, Play Jeux), recommandations et ancien accueil Google, économiseur Google, rapports de bugs, galerie, impression, Chromecast. La liste commentée est dans le script. Netflix, YouTube, Prime Video, le Play Store, l'Assistant et les entrées HDMI ne sont pas touchés.
+Désactive 22 apps système qui tournent pour rien : télémétrie et « gardien » TCL, boutique TCL, autocollants du mode magasin, services Google fermés (Play Films, Play Musique, Play Jeux), recommandations et ancien accueil Google, économiseur Google, rapports de bugs, galerie, impression, Chromecast, Assistant Google et recherche vocale. La liste commentée est dans le script. Netflix, YouTube, Prime Video, le Play Store et les entrées HDMI ne sont pas touchés. Sans l'Assistant, le bouton micro de la télécommande ne fait plus rien.
 
 Sur la TCL S6500, le système réactive Chromecast à chaque redémarrage complet de la télé. OsaTV s'en charge alors tout seul : à chaque démarrage, il se connecte en adb à la télé elle-même (`127.0.0.1:5555`) et désactive à nouveau les apps de la liste qui ont été réactivées (`data/Cleanup.kt`, `data/LocalAdb.kt`).
 

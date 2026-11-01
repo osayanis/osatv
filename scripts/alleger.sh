@@ -32,6 +32,8 @@ com.android.gallery3d
 com.android.printspooler
 com.android.wallpaper.livepicker
 com.google.android.apps.mediashell
+com.google.android.katniss
+com.google.android.speech.pumpkin
 "
 # com.tcl.bi                      télémétrie TCL (envoie l'usage de la télé)
 # com.tcl.tvweishi                « gardien » TCL (nettoyeur qui tourne en fond)
@@ -45,6 +47,7 @@ com.google.android.apps.mediashell
 # gallery3d, printspooler, livepicker   galerie, impression, fonds animés : sans usage sur une télé
 # apps.mediashell                 Chromecast intégré. Sur la TCL S6500, le système le réactive à chaque
 #                                 redémarrage complet : OsaTV 0.4+ le redésactive tout seul (data/Cleanup.kt).
+# katniss, speech.pumpkin         Assistant Google et recherche vocale (le bouton micro ne fait plus rien)
 
 adb connect "$TV" >/dev/null
 adb -s "$TV" wait-for-device

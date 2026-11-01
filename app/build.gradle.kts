@@ -20,8 +20,8 @@ android {
         applicationId = "fr.osalabs.osatv"
         minSdk = 28
         targetSdk = 35
-        versionCode = 4
-        versionName = "0.4.0"
+        versionCode = 5
+        versionName = "0.4.1"
     }
 
     signingConfigs {
