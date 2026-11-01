@@ -58,6 +58,20 @@ Pour revenir à l'accueil d'origine :
 
 Une réinitialisation d'usine de la télé remet aussi tout comme avant.
 
+### Alléger la télé (optionnel)
+
+```sh
+./scripts/alleger.sh 192.168.1.XX
+```
+
+Désactive 19 apps système qui tournent pour rien : télémétrie et « gardien » TCL, boutique TCL, autocollants du mode magasin, services Google fermés (Play Films, Play Musique, Play Jeux), recommandations et ancien accueil Google, économiseur Google, rapports de bugs, galerie, impression. La liste commentée est dans le script. Netflix, YouTube, Prime Video, le Play Store, Chromecast, l'Assistant et les entrées HDMI ne sont pas touchés.
+
+Rien n'est supprimé. Pour tout réactiver :
+
+```sh
+./scripts/alleger.sh 192.168.1.XX annuler
+```
+
 ## Compiler
 
 Il faut un JDK 17 et le SDK Android (plateforme 35) :
