@@ -45,7 +45,7 @@ Sur la télé :
 Sur le Mac, avec `adb` installé (`brew install android-platform-tools`) :
 
 ```sh
-./scripts/install.sh 192.168.1.XX OsaTV-0.3.0.apk
+./scripts/install.sh 192.168.1.XX OsaTV-0.4.0.apk
 ```
 
 Le script installe l'APK, fait d'OsaTV l'accueil par défaut et désactive l'accueil Google. Sans ça, celui-ci reprend la main sur le bouton Home.
@@ -66,7 +66,11 @@ Une réinitialisation d'usine de la télé remet aussi tout comme avant.
 
 Désactive 20 apps système qui tournent pour rien : télémétrie et « gardien » TCL, boutique TCL, autocollants du mode magasin, services Google fermés (Play Films, Play Musique, Play Jeux), recommandations et ancien accueil Google, économiseur Google, rapports de bugs, galerie, impression, Chromecast. La liste commentée est dans le script. Netflix, YouTube, Prime Video, le Play Store, l'Assistant et les entrées HDMI ne sont pas touchés.
 
-Sur la TCL S6500, le système réactive Chromecast à chaque redémarrage complet de la télé : il suffit de relancer le script.
+Sur la TCL S6500, le système réactive Chromecast à chaque redémarrage complet de la télé. OsaTV s'en charge alors tout seul : à chaque démarrage, il se connecte en adb à la télé elle-même (`127.0.0.1:5555`) et désactive à nouveau les apps de la liste qui ont été réactivées (`data/Cleanup.kt`, `data/LocalAdb.kt`).
+
+La première fois, la télé affiche « Autoriser le débogage USB ? » pour la clé d'OsaTV : coche « Toujours autoriser sur cet ordinateur » puis OK. Le débogage USB doit rester activé.
+
+⚠️ Une fois sa clé autorisée, OsaTV a les mêmes droits qu'adb sur la télé (installer, désactiver ou supprimer des apps, changer des réglages). Il ne s'en sert que pour cette liste. Pour lui retirer ce droit : Options pour les développeurs → Révoquer les autorisations de débogage USB (il faudra alors réautoriser le Mac aussi).
 
 Rien n'est supprimé. Pour tout réactiver :
 
@@ -114,6 +118,8 @@ L'APK sort dans `app/build/outputs/apk/release/`. La version release est signée
 | `ui/HomeScreen.kt` | Grille, défilement, économiseur |
 | `ui/Tiles.kt` | Icônes (focus, reflet, tremblement) |
 | `data/Showcase.kt` | Séries (TVmaze) et albums (Deezer) du haut de l'écran |
+| `data/Cleanup.kt` | Allègement automatique à chaque démarrage |
+| `data/LocalAdb.kt` | Client adb minimal vers la télé elle-même |
 | `data/Images.kt` | Téléchargement, cache disque et flou des images |
 | `ui/Shelf.kt` | Haut de l'écran (vidéo, photo, contenu), fond flou, heure |
 | `ui/TopShelf.kt` | Carrousel de séries, albums |

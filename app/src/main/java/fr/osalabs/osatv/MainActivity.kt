@@ -12,6 +12,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import fr.osalabs.osatv.data.Cleanup
 import fr.osalabs.osatv.data.Images
 import fr.osalabs.osatv.data.Showcase
 import fr.osalabs.osatv.data.TvApp
@@ -44,6 +45,8 @@ class MainActivity : ComponentActivity(), HomeActions {
             }
         }
         lifecycleScope.launch { state.reload() }
+        // Au cas où le démarrage a été manqué (première installation, récepteur coupé)
+        lifecycleScope.launch { Cleanup.runOncePerBoot(applicationContext) }
 
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_PACKAGE_ADDED)

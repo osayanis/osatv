@@ -44,7 +44,7 @@ com.google.android.apps.mediashell
 # feedback, bugreportsender       rapports de bugs envoyés à Google
 # gallery3d, printspooler, livepicker   galerie, impression, fonds animés : sans usage sur une télé
 # apps.mediashell                 Chromecast intégré. Sur la TCL S6500, le système le réactive à chaque
-#                                 redémarrage complet : relancer ce script après un redémarrage.
+#                                 redémarrage complet : OsaTV 0.4+ le redésactive tout seul (data/Cleanup.kt).
 
 adb connect "$TV" >/dev/null
 adb -s "$TV" wait-for-device
