@@ -1,11 +1,10 @@
 package fr.osalabs.osatv.ui
 
 import android.content.res.Resources
-import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -18,15 +17,19 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.asImageBitmap
@@ -40,6 +43,8 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.material3.LocalTextStyle
 import androidx.tv.material3.Text
 import fr.osalabs.osatv.R
+import fr.osalabs.osatv.data.Images
+import fr.osalabs.osatv.data.ShelfSource
 import fr.osalabs.osatv.data.Weather
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -59,47 +64,82 @@ private class Photo(val sharp: ImageBitmap, val blurred: ImageBitmap)
 
 private suspend fun loadPhoto(resources: Resources, index: Int): Photo = withContext(Dispatchers.IO) {
     val bitmap = BitmapFactory.decodeResource(resources, PHOTOS[index])
-    // Flou sans Modifier.blur (Android 12+) : on réduit l'image à 32 × 18 puis on l'agrandit avec lissage
-    val tiny = Bitmap.createScaledBitmap(bitmap, 32, 18, true)
-    val blurred = Bitmap.createScaledBitmap(tiny, 320, 180, true)
-    Photo(bitmap.asImageBitmap(), blurred.asImageBitmap())
+    bitmap.prepareToDraw() // envoi à la puce graphique en avance, sans bloquer l'affichage
+    Photo(bitmap.asImageBitmap(), Images.blur(bitmap).asImageBitmap())
 }
 
 /**
- * L'image du haut, en plein écran. [sharpness] passe de 1 (tout en haut) à 0 (dans la grille) :
- * l'image devient alors floue et sombre. [kenBurns] active un zoom très lent (économiseur).
+ * Tout ce qui est derrière la grille, du fond vers l'avant :
+ * la vidéo de l'espace, les paysages (en attendant la vidéo, ou sans réseau),
+ * le contenu de l'app sélectionnée dans le dock, puis le fond flou de la grille.
  *
- * Cette télé a une puce graphique modeste : une couche à alpha 0 n'est pas dessinée,
- * d'où des alphas complémentaires plutôt que des couches empilées en permanence.
+ * [sharpness] passe de 1 (tout en haut) à 0 (dans la grille). La puce graphique est modeste :
+ * une couche à alpha 0 n'est pas dessinée, d'où des alphas complémentaires.
  */
 @Composable
-fun Shelf(index: Int, sharpness: () -> Float, kenBurns: Boolean) {
+fun Shelf(
+    source: ShelfSource?,
+    photoIndex: Int,
+    sharpness: () -> Float,
+    scrolled: Boolean,
+    ambient: Boolean,
+    onVideo: (Boolean) -> Unit,
+) {
     val resources = LocalContext.current.resources
     // La photo est décodée avant le fondu, sinon on verrait un écran noir entre deux images
-    val current by produceState<Photo?>(null, index) { value = loadPhoto(resources, index) }
+    val photo by produceState<Photo?>(null, photoIndex) { value = loadPhoto(resources, photoIndex) }
 
-    Crossfade(targetState = current, animationSpec = tween(1600), label = "shelf") { photo ->
-        val zoom = remember { Animatable(1f) }
-        LaunchedEffect(photo, kenBurns) {
-            if (kenBurns) zoom.animateTo(1.12f, tween(30_000, easing = LinearEasing))
+    val videoWanted = ambient || (source == null && !scrolled)
+    // La couche vidéo n'existe que lorsqu'elle se voit : tant qu'elle existe, la télé recompose
+    // tout l'écran avec sa puce graphique à chaque image. Petit délai pour ne pas la créer
+    // quand on ne fait que traverser une icône.
+    val videoActive by produceState(false, videoWanted) {
+        if (videoWanted) {
+            delay(700)
+            value = true
+        } else {
+            value = false
         }
-        if (photo != null) {
-            Box(Modifier.fillMaxSize()) {
+    }
+    // Une fois l'image de l'app affichée (opaque), inutile de dessiner le paysage en dessous
+    var contentReady by remember(source) { mutableStateOf(false) }
+    val hidePhoto = source != null && contentReady && !ambient
+    var videoRendering by remember { mutableStateOf(false) }
+    val videoFade by animateFloatAsState(if (videoRendering && videoActive) 1f else 0f, tween(1500), label = "video")
+    // Vidéo retirée : le paysage revient tout de suite, sinon on verrait du noir pendant le fondu
+    val videoAlpha = if (videoActive) videoFade else 0f
+
+    Box(Modifier.fillMaxSize()) {
+        if (videoActive) {
+            AerialVideo(
+                play = true,
+                onRendering = {
+                    videoRendering = it
+                    onVideo(it)
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else if (videoRendering) {
+            SideEffect {
+                videoRendering = false
+                onVideo(false)
+            }
+        }
+
+        LightCrossfade(targetState = photo, durationMillis = 1600) { current ->
+            val zoom = remember { Animatable(1f) }
+            LaunchedEffect(current, ambient) {
+                if (ambient) zoom.animateTo(1.12f, tween(30_000, easing = LinearEasing))
+            }
+            if (current != null) {
                 Image(
-                    photo.blurred,
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize().graphicsLayer { alpha = 1f - sharpness() },
-                    contentScale = ContentScale.Crop,
-                    // Assombri au dessin plutôt que par une couche noire de plus
-                    colorFilter = ColorFilter.tint(Color.Black.copy(alpha = 0.45f), BlendMode.SrcAtop),
-                )
-                Image(
-                    photo.sharp,
+                    current.sharp,
                     contentDescription = null,
                     modifier = Modifier
                         .fillMaxSize()
                         .graphicsLayer {
-                            alpha = sharpness()
+                            // Dans la grille (sharpness 0), le fond flou opaque recouvre tout : couche sautée
+                            alpha = if (hidePhoto) 0f else (1f - videoAlpha) * sharpness()
                             scaleX = zoom.value
                             scaleY = zoom.value
                         },
@@ -107,22 +147,49 @@ fun Shelf(index: Int, sharpness: () -> Float, kenBurns: Boolean) {
                 )
             }
         }
-    }
-    // Voile en haut pour l'heure, en bas pour les noms sous les icônes
-    Box(Modifier.fillMaxSize().graphicsLayer { alpha = sharpness() }) {
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(90.dp)
-                .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.3f), Color.Transparent)))
-        )
-        Box(
-            Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .fillMaxHeight(0.5f)
-                .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.6f))))
-        )
+
+        LightCrossfade(
+            targetState = source.takeUnless { ambient },
+            modifier = Modifier.graphicsLayer {
+                alpha = sharpness()
+                compositingStrategy = CompositingStrategy.ModulateAlpha
+            },
+            durationMillis = 450,
+        ) { shown ->
+            when (shown) {
+                is ShelfSource.Series -> SeriesShelf(shown, onReady = { contentReady = true })
+                ShelfSource.TopAlbums -> AlbumsShelf(onReady = { contentReady = true })
+                null -> Unit
+            }
+        }
+
+        photo?.let {
+            Image(
+                it.blurred,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize().graphicsLayer { alpha = 1f - sharpness() },
+                contentScale = ContentScale.Crop,
+                // Assombri au dessin plutôt que par une couche noire de plus
+                colorFilter = ColorFilter.tint(Color.Black.copy(alpha = 0.45f), BlendMode.SrcAtop),
+            )
+        }
+
+        // Voile en haut pour l'heure, en bas pour les noms sous les icônes
+        Box(Modifier.fillMaxSize().graphicsLayer { alpha = sharpness() }) {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(90.dp)
+                    .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.3f), Color.Transparent)))
+            )
+            Box(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.45f)
+                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.65f))))
+            )
+        }
     }
 }
 
@@ -167,7 +234,7 @@ fun Clock(modifier: Modifier = Modifier) {
 
 /** Heure, date et météo en grand pour l'économiseur d'écran. */
 @Composable
-fun AmbientClock(weather: Weather?, modifier: Modifier = Modifier) {
+fun AmbientClock(weather: Weather?, caption: String?, modifier: Modifier = Modifier) {
     val now = rememberNow()
     val style = LocalTextStyle.current.merge(TextStyle(shadow = SoftShadow))
     Column(modifier.padding(start = 56.dp, bottom = 48.dp), horizontalAlignment = Alignment.Start) {
@@ -175,5 +242,8 @@ fun AmbientClock(weather: Weather?, modifier: Modifier = Modifier) {
         val date = now.format(DateFormat).replaceFirstChar { it.uppercase() }
         val line = if (weather != null) "$date   ${weather.symbol} ${weather.temperature}°  ${weather.city}" else date
         Text(line, style = style, fontSize = 18.sp, fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.85f))
+        if (caption != null) {
+            Text(caption, style = style, fontSize = 13.sp, color = Color.White.copy(alpha = 0.6f), modifier = Modifier.padding(top = 10.dp))
+        }
     }
 }

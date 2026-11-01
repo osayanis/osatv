@@ -1,6 +1,12 @@
 package fr.osalabs.osatv.ui
 
+import android.graphics.Bitmap
+import android.graphics.BlurMaskFilter
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RectF
 import android.view.KeyEvent as NativeKeyEvent
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
@@ -15,6 +21,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -25,16 +32,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
@@ -42,6 +53,8 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -52,8 +65,31 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.LocalTextStyle
 import androidx.tv.material3.Text
 import fr.osalabs.osatv.HomeItem
+import kotlinx.coroutines.launch
 
 private val TileShape = RoundedCornerShape(14.dp)
+private val ShadowPad = 22.dp
+private var shadowBitmap: ImageBitmap? = null
+
+/** Ombre floue dessinée une seule fois, en logiciel (BlurMaskFilter), puis réutilisée par toutes les icônes. */
+@Composable
+private fun tileShadow(): ImageBitmap {
+    shadowBitmap?.let { return it }
+    val density = LocalDensity.current
+    return with(density) {
+        val pad = ShadowPad.toPx()
+        val width = (Osa.tileWidth.toPx() + pad * 2).toInt()
+        val height = (Osa.tileHeight.toPx() + pad * 2).toInt()
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.argb(170, 0, 0, 0)
+            maskFilter = BlurMaskFilter(pad * 0.7f, BlurMaskFilter.Blur.NORMAL)
+        }
+        val radius = 14.dp.toPx()
+        Canvas(bitmap).drawRoundRect(RectF(pad, pad, width - pad, height - pad), radius, radius, paint)
+        bitmap.asImageBitmap().also { shadowBitmap = it }
+    }
+}
 private val LabelShadow = Shadow(Color.Black.copy(alpha = 0.6f), blurRadius = 10f)
 
 /**
@@ -77,6 +113,13 @@ fun HomeTile(
         label = "lift",
     )
     val labelAlpha by animateFloatAsState(if (focused && !jiggle) 1f else 0f, tween(160), label = "label")
+    // Inclinaison à l'arrivée du focus et rebond quand on bute sur le bord de la grille
+    val tilt = remember { Animatable(0f) }
+    val bounce = remember { Animatable(0f) }
+    var tiltAxisX by remember { mutableStateOf(false) }
+    var bounceAxisX by remember { mutableStateOf(true) }
+    val scope = rememberCoroutineScope()
+    val focusManager = LocalFocusManager.current
     val wobble = if (jiggle) {
         val transition = rememberInfiniteTransition(label = "jiggle")
         transition.animateFloat(-1.6f, 1.6f, infiniteRepeatable(tween(120), RepeatMode.Reverse), label = "angle").value
@@ -85,16 +128,69 @@ fun HomeTile(
     }
 
     Column(Modifier.width(Osa.tileWidth), horizontalAlignment = Alignment.CenterHorizontally) {
+      Box(Modifier.size(Osa.tileWidth, Osa.tileHeight), contentAlignment = Alignment.Center) {
+        // Ombre pré-calculée : une ombre « réelle » (elevation) serait recalculée à chaque image
+        // pendant l'inclinaison 3D, ce que la puce graphique de la télé ne suit pas
+        Image(
+            tileShadow(),
+            contentDescription = null,
+            modifier = Modifier
+                .requiredSize(Osa.tileWidth + ShadowPad * 2, Osa.tileHeight + ShadowPad * 2)
+                .graphicsLayer {
+                    val scale = 1f + 0.17f * lift
+                    scaleX = scale
+                    scaleY = scale
+                    translationY = 8.dp.toPx() * lift
+                    alpha = lift
+                },
+        )
         Box(
             Modifier
                 .size(Osa.tileWidth, Osa.tileHeight)
                 .focusRequester(focusRequester)
                 .onFocusChanged {
+                    if (it.isFocused && !focused) {
+                        val direction = Feedback.lastDirection
+                        if (direction != null) {
+                            tiltAxisX = direction == FocusDirection.Up || direction == FocusDirection.Down
+                            val start = when (direction) {
+                                FocusDirection.Right, FocusDirection.Down -> 11f
+                                else -> -11f
+                            }
+                            scope.launch {
+                                tilt.snapTo(start)
+                                tilt.animateTo(0f, spring(dampingRatio = 0.55f, stiffness = 420f))
+                            }
+                        }
+                    }
                     focused = it.isFocused
                     if (it.isFocused) onFocused()
                 }
                 .onKeyEvent { event ->
                     val native = event.nativeKeyEvent
+                    val direction = when (native.keyCode) {
+                        NativeKeyEvent.KEYCODE_DPAD_LEFT -> FocusDirection.Left
+                        NativeKeyEvent.KEYCODE_DPAD_RIGHT -> FocusDirection.Right
+                        NativeKeyEvent.KEYCODE_DPAD_UP -> FocusDirection.Up
+                        NativeKeyEvent.KEYCODE_DPAD_DOWN -> FocusDirection.Down
+                        else -> null
+                    }
+                    if (direction != null) {
+                        if (event.type != KeyEventType.KeyDown) return@onKeyEvent true
+                        Feedback.lastDirection = direction
+                        if (focusManager.moveFocus(direction)) {
+                            Feedback.tick()
+                        } else if (native.repeatCount == 0) {
+                            Feedback.bump()
+                            bounceAxisX = direction == FocusDirection.Left || direction == FocusDirection.Right
+                            val sign = if (direction == FocusDirection.Left || direction == FocusDirection.Up) -1f else 1f
+                            scope.launch {
+                                bounce.animateTo(sign, tween(70))
+                                bounce.animateTo(0f, spring(dampingRatio = 0.3f, stiffness = 900f))
+                            }
+                        }
+                        return@onKeyEvent true
+                    }
                     val isSelect = native.keyCode == NativeKeyEvent.KEYCODE_DPAD_CENTER ||
                         native.keyCode == NativeKeyEvent.KEYCODE_ENTER ||
                         native.keyCode == NativeKeyEvent.KEYCODE_NUMPAD_ENTER
@@ -109,7 +205,10 @@ fun HomeTile(
                             }
                         }
                         KeyEventType.KeyUp -> {
-                            if (!longPressed) onClick()
+                            if (!longPressed) {
+                                Feedback.select()
+                                onClick()
+                            }
                             longPressed = false
                         }
                     }
@@ -120,9 +219,12 @@ fun HomeTile(
                     val scale = 1f + 0.17f * lift
                     scaleX = scale
                     scaleY = scale
-                    translationY = -4.dp.toPx() * lift
+                    val push = 7.dp.toPx() * bounce.value
+                    translationX = if (bounceAxisX) push else 0f
+                    translationY = -4.dp.toPx() * lift + if (bounceAxisX) 0f else push
+                    if (tiltAxisX) rotationX = -tilt.value else rotationY = tilt.value
+                    cameraDistance = 9f * density
                     rotationZ = wobble
-                    shadowElevation = 26.dp.toPx() * lift
                     shape = TileShape
                     clip = true
                 },
@@ -144,6 +246,7 @@ fun HomeTile(
                     )
             )
         }
+      }
         Text(
             text = item.label,
             modifier = Modifier

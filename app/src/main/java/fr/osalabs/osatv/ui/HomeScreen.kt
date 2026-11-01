@@ -35,6 +35,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import fr.osalabs.osatv.HomeItem
 import fr.osalabs.osatv.HomeState
+import fr.osalabs.osatv.data.Images
+import fr.osalabs.osatv.data.SHELF_SOURCES
+import fr.osalabs.osatv.data.ShelfSource
+import fr.osalabs.osatv.data.Showcase
 import fr.osalabs.osatv.data.TvApp
 import fr.osalabs.osatv.data.TvSource
 import fr.osalabs.osatv.data.fetchWeather
@@ -65,6 +69,10 @@ fun HomeScreen(state: HomeState, actions: HomeActions) {
     var focusedRow by remember { mutableIntStateOf(0) }
     var menuFor by remember { mutableStateOf<HomeItem?>(null) }
     var ambient by remember { mutableStateOf(false) }
+    var intro by remember { mutableStateOf(true) }
+    var videoOn by remember { mutableStateOf(false) }
+    // Contenu de l'image du haut : celui de l'app sélectionnée dans le dock
+    var shelfSource by remember { mutableStateOf<ShelfSource?>(null) }
     val keyPresses = remember { MutableSharedFlow<Unit>(extraBufferCapacity = 1) }
     // Touches dont on a avalé l'appui : on avale aussi le relâchement, sinon l'icône s'ouvrirait
     val swallowedKeyUps = remember { mutableSetOf<Int>() }
@@ -81,6 +89,7 @@ fun HomeScreen(state: HomeState, actions: HomeActions) {
         state.movingKey = null
         ambient = false
         focusedRow = 0
+        Feedback.lastDirection = null
         withFrameNanos { }
         runCatching { requester(items.first().key).requestFocus() }
     }
@@ -101,6 +110,16 @@ fun HomeScreen(state: HomeState, actions: HomeActions) {
         while (true) {
             fetchWeather()?.let { state.weather = it }
             delay(30 * 60_000L)
+        }
+    }
+    // Prépare les séries et albums en arrière-plan, pour qu'ils s'affichent dès le premier focus
+    LaunchedEffect(Unit) {
+        delay(5_000)
+        SHELF_SOURCES.values.distinct().forEach { source ->
+            when (source) {
+                is ShelfSource.Series -> Showcase.series(source).firstOrNull()?.let { Images.load(it.imageUrl) }
+                ShelfSource.TopAlbums -> Showcase.topAlbums()
+            }
         }
     }
     LifecycleResumeEffect(Unit) {
@@ -140,9 +159,12 @@ fun HomeScreen(state: HomeState, actions: HomeActions) {
             },
     ) {
         Shelf(
-            photoIndex,
+            source = shelfSource,
+            photoIndex = photoIndex,
             sharpness = { if (ambient) 1f else 1f - (scroll / Osa.rowPitch).coerceIn(0f, 1f) },
-            kenBurns = ambient,
+            scrolled = focusedRow > 0,
+            ambient = ambient,
+            onVideo = { videoOn = it },
         )
 
         Column(
@@ -168,7 +190,12 @@ fun HomeScreen(state: HomeState, actions: HomeActions) {
                                 item = item,
                                 focusRequester = requester(item.key),
                                 jiggle = state.movingKey == item.key,
-                                onFocused = { focusedRow = row },
+                                onFocused = {
+                                    focusedRow = row
+                                    if (row == 0) {
+                                        shelfSource = (item as? HomeItem.App)?.let { SHELF_SOURCES[it.app.packageName] }
+                                    }
+                                },
                                 onClick = { open(item, actions) },
                                 onLongClick = { menuFor = item },
                             )
@@ -184,7 +211,11 @@ fun HomeScreen(state: HomeState, actions: HomeActions) {
                 .graphicsLayer { alpha = gridAlpha * (1f - (scroll / Osa.rowPitch).coerceIn(0f, 1f)) }
         )
         if (ambient) {
-            AmbientClock(state.weather, Modifier.align(Alignment.BottomStart))
+            AmbientClock(
+                state.weather,
+                caption = if (videoOn) "La Terre vue de la Station spatiale internationale  ·  NASA" else null,
+                modifier = Modifier.align(Alignment.BottomStart),
+            )
         }
 
         menuFor?.let { item ->
@@ -204,6 +235,10 @@ fun HomeScreen(state: HomeState, actions: HomeActions) {
                     (item as? HomeItem.App)?.let { actions.uninstall(it.app) }
                 },
             )
+        }
+
+        if (intro) {
+            Intro(ready = items.isNotEmpty(), onDone = { intro = false })
         }
     }
 }

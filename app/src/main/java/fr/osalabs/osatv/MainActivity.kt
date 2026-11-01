@@ -12,9 +12,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import fr.osalabs.osatv.data.Images
+import fr.osalabs.osatv.data.Showcase
 import fr.osalabs.osatv.data.TvApp
 import fr.osalabs.osatv.data.TvSource
 import fr.osalabs.osatv.data.openSource as openTvSource
+import fr.osalabs.osatv.ui.Feedback
 import fr.osalabs.osatv.ui.HomeActions
 import fr.osalabs.osatv.ui.HomeScreen
 import fr.osalabs.osatv.ui.OsaTheme
@@ -31,6 +34,9 @@ class MainActivity : ComponentActivity(), HomeActions {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Images.init(applicationContext)
+        Showcase.init(applicationContext)
+        Feedback.init(applicationContext)
         state = HomeState(applicationContext)
         setContent {
             OsaTheme {
