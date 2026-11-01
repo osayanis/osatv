@@ -31,19 +31,14 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
-import fr.osalabs.osatv.data.TvApp
+import fr.osalabs.osatv.HomeItem
 
-/** Menu ouvert par un appui long sur OK. */
+/** Menu ouvert par un appui long sur OK, comme le menu contextuel de tvOS. */
 @Composable
-fun AppMenu(
-    app: TvApp,
-    isFavorite: Boolean,
-    favoriteIndex: Int,
-    favoriteCount: Int,
+fun ItemMenu(
+    item: HomeItem,
     onDismiss: () -> Unit,
-    onOpen: () -> Unit,
-    onToggleFavorite: () -> Unit,
-    onMove: (Int) -> Unit,
+    onMove: () -> Unit,
     onInfo: () -> Unit,
     onUninstall: () -> Unit,
 ) {
@@ -56,26 +51,25 @@ fun AppMenu(
         }
         Column(
             Modifier
-                .width(340.dp)
-                .clip(RoundedCornerShape(22.dp))
-                .background(Osa.card)
-                .padding(20.dp),
+                .width(320.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(Color(0xF22C2C2E))
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Image(app.icon, null, Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)))
-                Spacer(Modifier.width(12.dp))
-                Text(app.label, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(Modifier.padding(start = 6.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (item is HomeItem.App) {
+                    Image(item.app.icon, null, Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)))
+                    Spacer(Modifier.width(10.dp))
+                }
+                Text(item.label, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            Spacer(Modifier.height(8.dp))
-            MenuItem("Ouvrir", Modifier.focusRequester(first), onOpen)
-            MenuItem(if (isFavorite) "Retirer des favoris" else "Ajouter aux favoris", onClick = onToggleFavorite)
-            if (isFavorite && favoriteIndex > 0) MenuItem("Déplacer vers la gauche", onClick = { onMove(-1) })
-            if (isFavorite && favoriteIndex in 0 until favoriteCount - 1) {
-                MenuItem("Déplacer vers la droite", onClick = { onMove(1) })
+            Spacer(Modifier.height(6.dp))
+            MenuItem("Déplacer", Modifier.focusRequester(first), onMove)
+            if (item is HomeItem.App) {
+                MenuItem("Infos sur l'app", onClick = onInfo)
+                MenuItem("Supprimer l'app", onClick = onUninstall, destructive = true)
             }
-            MenuItem("Infos sur l'app", onClick = onInfo)
-            MenuItem("Désinstaller", onClick = onUninstall, destructive = true)
         }
     }
 }
@@ -90,19 +84,19 @@ private fun MenuItem(
     Surface(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp)),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.03f),
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(14.dp)),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = Osa.faint,
-            contentColor = if (destructive) Color(0xFFFF6961) else Color.White,
+            containerColor = Color.Transparent,
+            contentColor = if (destructive) Color(0xFFFF453A) else Color.White,
             focusedContainerColor = Color.White,
             focusedContentColor = if (destructive) Color(0xFFD70015) else Color.Black,
         ),
     ) {
         Text(
             label,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 11.dp),
-            fontSize = 15.sp,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            fontSize = 16.sp,
             fontWeight = FontWeight.SemiBold,
         )
     }

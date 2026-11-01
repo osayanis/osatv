@@ -22,13 +22,11 @@ data class TvApp(
     val label: String,
     val banner: ImageBitmap?,
     val icon: ImageBitmap,
-    /** Version minuscule de l'image, agrandie pour un effet flou peu coûteux. */
-    val backdrop: ImageBitmap,
     val accent: Color,
 )
 
-/** Apps mises en favoris au premier lancement, si elles sont installées. */
-private val PREFERRED = listOf(
+/** Apps placées en tête (le dock) au premier lancement, si elles sont installées. */
+val PREFERRED_APPS = listOf(
     "com.netflix.ninja",
     "com.google.android.youtube.tv",
     "com.amazon.amazonvideo.livingroom",
@@ -78,16 +76,13 @@ class AppRepository(private val context: Context) {
     private fun load(activity: ActivityInfo): TvApp {
         val icon = activity.loadIcon(pm).toBitmap(160, 160)
         val banner = activity.loadBanner(pm)?.toBannerBitmap()
-        val source = banner ?: icon
-        val tiny = Bitmap.createScaledBitmap(source, 16, 9, true)
-        val accent = Bitmap.createScaledBitmap(source, 1, 1, true).getPixel(0, 0)
+        val accent = Bitmap.createScaledBitmap(banner ?: icon, 1, 1, true).getPixel(0, 0)
         return TvApp(
             packageName = activity.packageName,
             activityName = activity.name,
             label = activity.loadLabel(pm).toString(),
             banner = banner?.asImageBitmap(),
             icon = icon.asImageBitmap(),
-            backdrop = Bitmap.createScaledBitmap(tiny, 192, 108, true).asImageBitmap(),
             accent = Color(accent),
         )
     }
@@ -104,25 +99,16 @@ class AppRepository(private val context: Context) {
         context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 
-    fun savedFavorites(): List<String>? =
-        prefs.getString(KEY_FAVORITES, null)?.split('|')?.filter { it.isNotEmpty() }
+    /** Ordre des icônes de l'accueil (clés de [fr.osalabs.osatv.HomeItem]). */
+    fun savedOrder(): List<String>? =
+        prefs.getString(KEY_ORDER, null)?.split('|')?.filter { it.isNotEmpty() }
 
-    fun saveFavorites(packages: List<String>) {
-        prefs.edit().putString(KEY_FAVORITES, packages.joinToString("|")).apply()
-    }
-
-    fun defaultFavorites(apps: List<TvApp>): List<String> {
-        val installed = apps.map { it.packageName }.toSet()
-        val picks = PREFERRED.filter { it in installed }.toMutableList()
-        for (app in apps) {
-            if (picks.size >= 6) break
-            if (app.packageName !in picks) picks += app.packageName
-        }
-        return picks
+    fun saveOrder(keys: List<String>) {
+        prefs.edit().putString(KEY_ORDER, keys.joinToString("|")).apply()
     }
 
     private companion object {
-        const val KEY_FAVORITES = "favorites"
+        const val KEY_ORDER = "order"
         const val TAG = "OsaTV"
     }
 }

@@ -27,11 +27,15 @@ object Osa {
     val muted = Color.White.copy(alpha = 0.6f)
     val faint = Color.White.copy(alpha = 0.08f)
 
-    // Grille pensée pour 960 × 540 dp (une télé 720p ou 1080p)
-    val side = 48.dp
-    val tileWidth = 156.dp
-    val gap = 21.dp
+    // Grille pensée pour 960 × 540 dp (une télé 720p ou 1080p), proportions de tvOS
     const val COLUMNS = 5
+    val side = 57.dp // (960 - 5 × 150 - 4 × 24) / 2 : grille centrée
+    val gap = 24.dp
+    val tileWidth = 150.dp
+    val tileHeight = 90.dp // icônes 5:3 comme sur tvOS
+    val rowPitch = 140.dp
+    /** Hauteur de l'image du haut avant la première rangée (le dock). */
+    val shelfHeight = 348.dp
 }
 
 @Composable
